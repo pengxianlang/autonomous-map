@@ -32,13 +32,38 @@ jobs:
           mkdir project
           unzip -o AutonomousMapV1_Source.zip -d project
 
+      - name: Fix Java Kotlin target
+        run: |
+          PROJECT_DIR=$(find project -name settings.gradle -printf '%h\n' | head -n 1)
+          echo "Project directory: $PROJECT_DIR"
+          python3 - "$PROJECT_DIR/app/build.gradle" <<'PY'
+          import sys
+          from pathlib import Path
+          p = Path(sys.argv[1])
+          s = p.read_text()
+          if 'compileOptions {' not in s:
+              pos = s.rfind('}')
+              s = s[:pos] + '''
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
+          ''' + s[pos:]
+          p.write_text(s)
+          print("Java and Kotlin targets set to 17")
+          PY
+
       - name: Build APK
         run: |
-          cd project/AutonomousMapV1
+          PROJECT_DIR=$(find project -name settings.gradle -printf '%h\n' | head -n 1)
+          cd "$PROJECT_DIR"
           gradle assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: autonomous-map-apk
-          path: project/AutonomousMapV1/app/build/outputs/apk/debug/app-debug.apk
+          path: project/**/app/build/outputs/apk/debug/app-debug.apk
